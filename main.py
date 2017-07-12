@@ -4,16 +4,19 @@ import math
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
-
+import os
+from util import load_word_vectors
 import data
 import model
 
 parser = argparse.ArgumentParser(description='PyTorch PennTreeBank RNN/LSTM Language Model')
 parser.add_argument('--data', type=str, default='./data/penn',
                     help='location of the data corpus')
+parser.add_argument('--embedding_one', type=str, default='../treelstm.pytorch/data/glove/glove.840B.300d',
+                    help='location of the data corpus')
 parser.add_argument('--model', type=str, default='LSTM',
                     help='type of recurrent net (RNN_TANH, RNN_RELU, LSTM, GRU)')
-parser.add_argument('--emsize', type=int, default=200,
+parser.add_argument('--emsize', type=int, default=300,
                     help='size of word embeddings')
 parser.add_argument('--nhid', type=int, default=200,
                     help='number of hidden units per layer')
@@ -82,6 +85,38 @@ model = model.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nlayers
 if args.cuda:
     model.cuda()
 
+emb_torch = 'sst_embed1.pth'
+# emb_torch2 = 'sst_embed2.pth'
+emb_vector_path = args.embedding_one
+# emb_vector_path2 = args.embedding_two
+assert os.path.isfile(emb_vector_path + '.txt')
+# assert os.path.isfile(emb_vector_path2 + '.txt')
+##########################################
+is_preprocessing_data = False
+emb_file = os.path.join(args.data, emb_torch)
+if os.path.isfile(emb_file):
+    emb = torch.load(emb_file)
+    print('load %s' % (emb_file))
+else:
+# load glove embeddings and vocab
+    glove_vocab, glove_emb = load_word_vectors(emb_vector_path, ' ')
+    print('==> Embedding vocabulary size: %d ' % glove_vocab.size())
+    emb = torch.zeros(ntokens, glove_emb.size(1))
+    for word in corpus.dictionary.word2idx.keys():
+        if glove_vocab.getIndex(word):
+            emb[corpus.dictionary.word2idx[word]] = glove_emb[glove_vocab.getIndex(word)]
+        else:
+            emb[corpus.dictionary.word2idx[word]] = torch.Tensor(emb[corpus.dictionary.word2idx[word]].size()).normal_(-0.05, 0.05)
+    torch.save(emb, emb_file)
+    glove_emb = None
+    glove_vocab = None
+    is_preprocessing_data = True  # flag to quit
+    print('done creating emb, quit')
+#######################################################
+if is_preprocessing_data:
+    quit()
+
+model.encoder.state_dict()['weight'].copy_(emb)
 
 criterion = nn.CrossEntropyLoss()
 print ('--model info --')
