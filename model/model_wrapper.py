@@ -2,6 +2,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 from conv_model import MultiConvModule
 import torch
+import os
 class RNNModel(nn.Module):
     """Container module with an encoder, a recurrent module, and a decoder."""
 
@@ -95,11 +96,25 @@ class ModelWrapper(nn.Module):
         self.nhid = nhid
         self.nlayers = nlayers
 
+        # save state file for transfer learning
+        self.conv_state_file = 'convolution_state_dict.pth'
+        self.lstm_state_file = 'lstm_state_dict.pth'
+
     def init_weights(self):
         initrange = 0.1
         self.encoder.weight.data.uniform_(-initrange, initrange)
         self.decoder.bias.data.fill_(0)
         self.decoder.weight.data.uniform_(-initrange, initrange)
+
+    def save_state_files(self, dir):
+        '''
+        Save state dict to file
+        :param dir: where to save file
+        :return:
+        '''
+        torch.save(self.conv_module.state_dict(), os.path.join(dir, self.conv_state_file))
+        torch.save(self.rnn.state_dict(), os.path.join(dir, self.lstm_state_file))
+        print ('save state file to %s'%(dir))
 
     def forward(self, input, hidden):
         '''
@@ -114,7 +129,8 @@ class ModelWrapper(nn.Module):
         output, hidden = self.rnn(c_out, hidden)
         output = self.drop(output) # (seq, batch, emb_dim)
         decoded = self.decoder(output.view(output.size(0)*output.size(1), output.size(2)))
-        return decoded.view(output.size(0), output.size(1), decoded.size(1)), hidden
+        decoded_output = decoded.view(output.size(0), output.size(1), decoded.size(1)), hidden
+        return decoded_output # (35, 20, 10000) |
 
     def init_hidden(self, bsz):
         weight = next(self.parameters()).data

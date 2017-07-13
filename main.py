@@ -230,3 +230,8 @@ print('=' * 89)
 print('| End of training | test loss {:5.2f} | test ppl {:8.2f}'.format(
     test_loss, math.exp(test_loss)))
 print('=' * 89)
+
+# save state_dict()
+model.save_state_files('./saved')
+
+# python main.py --data ./data/movie5000 --cuda --emsize 300 --nhid 168 --dropout 0.5 --epochs 10
