@@ -242,8 +242,8 @@ def train():
         # for p in model.parameters():
         #     p.data.add_(-lr, p.grad.data)
 
-        # for p in model.conv_module.parameters():
-        #     p.data.add_(-lr, p.grad.data)
+        for p in model.conv_module.parameters():
+            p.data.add_(-lr, p.grad.data)
 
         for p in model.rnn.parameters():
             p.data.add_(-lr, p.grad.data)

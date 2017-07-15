@@ -2,15 +2,11 @@
 
 This repo is adapt from [PyTorch Word Language Model]() example with a model wrapper for any model
 
-```bash
-python main.py --cuda --epochs 6        # Train a LSTM on PTB with CUDA, reaching perplexity of 117.61
-python main.py --cuda --epochs 6 --tied # Train a tied LSTM on PTB with CUDA, reaching perplexity of 110.44
-python main.py --cuda --tied            # Train a tied LSTM on PTB with CUDA for 40 epochs, reaching perplexity of 87.17
-python generate.py                      # Generate samples from the trained LSTM model.
+It require meowlogtool, a log tool upload logs file on github
+```
+pip install meowlogtool
 ```
 
-During training, if a keyboard interrupt (Ctrl-C) is received,
-training is stopped and the current model is evaluted against the test dataset.
 
 The `main.py` script accepts the following arguments:
 
@@ -40,6 +36,6 @@ With these arguments, a variety of models can be tested.
 As an example, the following arguments produce slower but better models:
 
 ```bash
-python main.py --cuda --emsize 300 --nhid 650 --dropout 0.5 --epochs 40
+python main.py --cuda --emsize 300 --nhid 168 --dropout 0.5 --epochs 40 --noglove
 
 ```
