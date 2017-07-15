@@ -68,14 +68,25 @@ class RNNModel(nn.Module):
 class ModelWrapper(nn.Module):
     """Container module with an encoder, a custom module, and a decoder."""
 
-    def __init__(self, rnn_type, ntoken, ninp, nhid, nlayers, dropout=0.5, tie_weights=False):
+    def __init__(self, rnn_type, ntoken, ninp, nhid, nlayers, dropout=0.5, tie_weights=False, channel = 1):
         super(ModelWrapper, self).__init__()
+        self.channel = channel
         self.drop = nn.Dropout(dropout)
         self.encoder = nn.Embedding(ntoken, ninp)
+        for param in self.encoder.parameters():
+            param.requires_grad = False
+        print('freeze encoder')
+        if channel == 2:
+            self.encoder2 = nn.Embedding(ntoken, ninp)
+            for param in self.encoder2.parameters():
+                param.requires_grad = False
+            print('freeze encoder2')
         # your model goes here
-        self.conv_module = MultiConvModule(1, ninp, 1, [100, 100], [5, 3])
+        self.conv_module = MultiConvModule(0, ninp, channel, [100, 100], [5, 3])
         in_dim = 200
         self.bidirectional = False
+        # self.rnn = nn.RNN(input_size=in_dim, hidden_size=nhid, nonlinearity='relu',  bidirectional=self.bidirectional)
+        # self.rnn = nn.LSTM(input_size=in_dim, hidden_size=nhid, bidirectional=self.bidirectional)
         self.rnn = nn.LSTM(input_size=in_dim, hidden_size=nhid, bidirectional=self.bidirectional)
         # and end here
         self.decoder = nn.Linear(nhid, ntoken)
@@ -123,8 +134,13 @@ class ModelWrapper(nn.Module):
         :param hidden:
         :return: (35, 20, 10000)
         '''
-        emb = self.drop(self.encoder(input)) # (seq, batch, emb_dim)
-        emb = emb.unsqueeze(1) # (seq, 1, batch, emb_dim)
+        emb1 = self.drop(self.encoder(input)) # (seq, batch, emb_dim)
+        emb1 = emb1.unsqueeze(1) # (seq, 1, batch, emb_dim)# batch = 20
+        emb = emb1
+        if self.channel == 2:
+            emb2 = self.drop(self.encoder2(input))
+            emb2 = emb2.unsqueeze(1)  # (seq, 1, batch, emb_dim)# batch = 20
+            emb = torch.cat([emb1, emb2], 1)
         c_out = self.conv_module(emb, batch = True)
         output, hidden = self.rnn(c_out, hidden)
         output = self.drop(output) # (seq, batch, emb_dim)

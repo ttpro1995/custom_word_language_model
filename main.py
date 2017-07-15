@@ -8,11 +8,17 @@ import os
 from util import load_word_vectors
 import data
 from model import ModelWrapper
+import sys
+from meowlogtool import log_util
+
+
 
 parser = argparse.ArgumentParser(description='PyTorch PennTreeBank RNN/LSTM Language Model')
 parser.add_argument('--data', type=str, default='./data/penn',
                     help='location of the data corpus')
 parser.add_argument('--embedding_one', type=str, default='../treelstm.pytorch/data/glove/glove.840B.300d',
+                    help='location of the data corpus')
+parser.add_argument('--embedding_two', type=str, default='/media/vdvinh/25A1FEDE380BDADA/ff/glove_sorted/glove.840B.300d',
                     help='location of the data corpus')
 parser.add_argument('--model', type=str, default='LSTM',
                     help='type of recurrent net (RNN_TANH, RNN_RELU, LSTM, GRU)')
@@ -40,11 +46,25 @@ parser.add_argument('--seed', type=int, default=1111,
                     help='random seed')
 parser.add_argument('--cuda', action='store_true',
                     help='use CUDA')
+parser.add_argument('--noglove', action='store_true',
+                    help='NOT use glove pre-train')
 parser.add_argument('--log-interval', type=int, default=200, metavar='N',
                     help='report interval')
-parser.add_argument('--save', type=str,  default='model.pt',
+parser.add_argument('--save', type=str,  default='tmp_save',
                     help='path to save the final model')
+parser.add_argument('--channel', type = int, default=1)
 args = parser.parse_args()
+
+if not os.path.exists(args.save):
+    os.makedirs(args.save)
+
+# log to console and file
+logger1 = log_util.create_logger(os.path.join(args.save, 'word_language_model'), print_console=True)
+logger1.info("LOG_FILE")  # log using logger1
+
+# attach log to stdout (print function)
+s1 = log_util.StreamToLogger(logger1)
+sys.stdout = s1
 
 # Set the random seed manually for reproducibility.
 torch.manual_seed(args.seed)
@@ -82,43 +102,73 @@ test_data = batchify(corpus.test, eval_batch_size)
 
 ntokens = len(corpus.dictionary)
 # model = model.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied)
-model = ModelWrapper(args.model, ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied)
+model = ModelWrapper(args.model, ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied, channel = args.channel)
 
 if args.cuda:
     model.cuda()
 
-emb_torch = 'sst_embed1.pth'
-# emb_torch2 = 'sst_embed2.pth'
-emb_vector_path = args.embedding_one
-# emb_vector_path2 = args.embedding_two
-assert os.path.isfile(emb_vector_path + '.txt')
-# assert os.path.isfile(emb_vector_path2 + '.txt')
-##########################################
-is_preprocessing_data = False
-emb_file = os.path.join(args.data, emb_torch)
-if os.path.isfile(emb_file):
-    emb = torch.load(emb_file)
-    print('load %s' % (emb_file))
-else:
-# load glove embeddings and vocab
-    glove_vocab, glove_emb = load_word_vectors(emb_vector_path, ' ')
-    print('==> Embedding vocabulary size: %d ' % glove_vocab.size())
-    emb = torch.zeros(ntokens, glove_emb.size(1))
-    for word in corpus.dictionary.word2idx.keys():
-        if glove_vocab.getIndex(word):
-            emb[corpus.dictionary.word2idx[word]] = glove_emb[glove_vocab.getIndex(word)]
+if not args.noglove:
+    emb_torch = 'sst_embed1.pth'
+    emb_torch2 = 'sst_embed2.pth'
+    emb_vector_path = args.embedding_one
+    emb_vector_path2 = args.embedding_two
+    assert os.path.isfile(emb_vector_path + '.txt')
+    # assert os.path.isfile(emb_vector_path2 + '.txt')
+    ##########################################
+    is_preprocessing_data = False
+    emb_file = os.path.join(args.data, emb_torch)
+    if os.path.isfile(emb_file):
+        emb = torch.load(emb_file)
+        print('load %s' % (emb_file))
+    else:
+    # load glove embeddings and vocab
+        glove_vocab, glove_emb = load_word_vectors(emb_vector_path, ' ')
+        print('==> Embedding vocabulary size: %d ' % glove_vocab.size())
+        emb = torch.zeros(ntokens, glove_emb.size(1))
+        for word in corpus.dictionary.word2idx.keys():
+            if glove_vocab.getIndex(word):
+                emb[corpus.dictionary.word2idx[word]] = glove_emb[glove_vocab.getIndex(word)]
+            else:
+                emb[corpus.dictionary.word2idx[word]] = torch.Tensor(emb[corpus.dictionary.word2idx[word]].size()).normal_(-0.05, 0.05)
+        torch.save(emb, emb_file)
+        glove_emb = None
+        glove_vocab = None
+        is_preprocessing_data = True  # flag to quit
+        print('done creating emb, quit')
+    #####################
+    if args.channel ==2:
+        emb_file2 = os.path.join(args.data, emb_torch2)
+        if os.path.isfile(emb_file2):
+            emb2 = torch.load(emb_file2)
+            print('load %s' % (emb_file2))
         else:
-            emb[corpus.dictionary.word2idx[word]] = torch.Tensor(emb[corpus.dictionary.word2idx[word]].size()).normal_(-0.05, 0.05)
-    torch.save(emb, emb_file)
-    glove_emb = None
-    glove_vocab = None
-    is_preprocessing_data = True  # flag to quit
-    print('done creating emb, quit')
-#######################################################
-if is_preprocessing_data:
-    quit()
+        # load glove embeddings and vocab
+            glove_vocab, glove_emb = load_word_vectors(emb_vector_path2, ' ')
+            print('==> Embedding vocabulary size: %d ' % glove_vocab.size())
+            emb2 = torch.zeros(ntokens, glove_emb.size(1))
+            for word in corpus.dictionary.word2idx.keys():
+                if glove_vocab.getIndex(word):
+                    emb2[corpus.dictionary.word2idx[word]] = glove_emb[glove_vocab.getIndex(word)]
+                else:
+                    emb2[corpus.dictionary.word2idx[word]] = torch.Tensor(emb2[corpus.dictionary.word2idx[word]].size()).normal_(-0.05, 0.05)
+            torch.save(emb2, emb_file2)
+            glove_emb = None
+            glove_vocab = None
+            is_preprocessing_data = True  # flag to quit
+            print('done creating emb, quit')
 
-model.encoder.state_dict()['weight'].copy_(emb)
+
+
+    #######################################################
+    if is_preprocessing_data:
+        quit()
+
+    model.encoder.state_dict()['weight'].copy_(emb)
+    if args.channel == 2:
+        model.encoder2.state_dict()['weight'].copy_(emb2)
+else:
+    print('not use pretrained glove')
+
 
 criterion = nn.CrossEntropyLoss()
 print ('--model info --')
@@ -137,8 +187,19 @@ def repackage_hidden(h):
 
 def get_batch(source, i, evaluation=False):
     seq_len = min(args.bptt, len(source) - 1 - i)
-    data = Variable(source[i:i+seq_len], volatile=evaluation)
-    target = Variable(source[i+1:i+1+seq_len].view(-1))
+    d = source[i:i+seq_len]
+    t = source[i+1:i+1+seq_len]
+    # per = torch.randperm(d.size(1))
+    # if args.cuda:
+    #     per = per.cuda()
+    # t = torch.transpose(t, 0, 1)
+    # d = torch.transpose(d, 0, 1)
+    # t = t[per]
+    # d = d[per]
+    # t = torch.transpose(t, 0, 1).contiguous()
+    # d = torch.transpose(d, 0, 1).contiguous()
+    data = Variable(d, volatile=evaluation)
+    target = Variable(t.view(-1))
     return data, target
 
 
@@ -178,7 +239,16 @@ def train():
 
         # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
         torch.nn.utils.clip_grad_norm(model.parameters(), args.clip)
-        for p in model.parameters():
+        # for p in model.parameters():
+        #     p.data.add_(-lr, p.grad.data)
+
+        # for p in model.conv_module.parameters():
+        #     p.data.add_(-lr, p.grad.data)
+
+        for p in model.rnn.parameters():
+            p.data.add_(-lr, p.grad.data)
+
+        for p in model.decoder.parameters():
             p.data.add_(-lr, p.grad.data)
 
         total_loss += loss.data
@@ -210,7 +280,7 @@ try:
         print('-' * 89)
         # Save the model if the validation loss is the best we've seen so far.
         if not best_val_loss or val_loss < best_val_loss:
-            with open(args.save, 'wb') as f:
+            with open(os.path.join(args.save, 'model.pt'), 'wb') as f:
                 torch.save(model, f)
             best_val_loss = val_loss
         else:
@@ -220,8 +290,10 @@ except KeyboardInterrupt:
     print('-' * 89)
     print('Exiting from training early')
 
+
+
 # Load the best saved model.
-with open(args.save, 'rb') as f:
+with open(os.path.join(args.save, 'model.pt'), 'rb') as f:
     model = torch.load(f)
 
 # Run on test data.
@@ -232,6 +304,10 @@ print('| End of training | test loss {:5.2f} | test ppl {:8.2f}'.format(
 print('=' * 89)
 
 # save state_dict()
-model.save_state_files('./saved')
+model.save_state_files(args.save)
 
 # python main.py --data ./data/movie5000 --cuda --emsize 300 --nhid 168 --dropout 0.5 --epochs 10
+html_log = log_util.up_gist(os.path.join(args.save, 'word_language_model.log'), 'test_doggy', 'test_doggy')
+print('link on gist %s' % (html_log))
+
+# python main.py --cuda --emsize 300 --nhid 150 --dropout 0.5 --epochs 40 --save saved_penn3
