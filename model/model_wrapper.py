@@ -68,7 +68,7 @@ class RNNModel(nn.Module):
 class ModelWrapper(nn.Module):
     """Container module with an encoder, a custom module, and a decoder."""
 
-    def __init__(self, rnn_type, ntoken, ninp, nhid, nlayers, dropout=0.5, tie_weights=False, channel = 1):
+    def __init__(self, rnn_type, ntoken, ninp, nhid, nlayers, dropout=0.5, tie_weights=False, channel = 1, pooling = False):
         super(ModelWrapper, self).__init__()
         self.channel = channel
         self.drop = nn.Dropout(dropout)
@@ -82,7 +82,7 @@ class ModelWrapper(nn.Module):
                 param.requires_grad = False
             print('freeze encoder2')
         # your model goes here
-        self.conv_module = MultiConvModule(0, ninp, channel, [100, 100], [5, 3])
+        self.conv_module = MultiConvModule(0, ninp, channel, [100, 100], [5, 3], pooling)
         in_dim = 200
         self.bidirectional = False
         # self.rnn = nn.RNN(input_size=in_dim, hidden_size=nhid, nonlinearity='relu',  bidirectional=self.bidirectional)

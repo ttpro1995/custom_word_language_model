@@ -34,11 +34,12 @@ class ConvModule(nn.Module):
 
 
 class MultiConvModule(nn.Module):
-    def __init__(self, cuda, emb_dim, in_channel, n_filters, kernel_sizes):
+    def __init__(self, cuda, emb_dim, in_channel, n_filters, kernel_sizes, pooling = False):
         super(MultiConvModule, self).__init__()
         self.cudaFlag = cuda
         self.n_conv = len(n_filters)
         self.paddingList = []
+        self.pooling = pooling
         self.convList = nn.ModuleList()
         for i in range(self.n_conv):
             kernel_size = kernel_sizes[i]
@@ -50,38 +51,45 @@ class MultiConvModule(nn.Module):
 
         self.in_dropout = nn.Dropout(p=0.5)
         self.out_dropout = nn.Dropout(p=0.2)
+        if pooling:
+            self.max_pooling = nn.MaxPool2d(kernel_size=2, padding=1)
         if self.cudaFlag:
             self.convList = self.convList.cuda()
             self.in_dropout = self.in_dropout.cuda()
             self.out_dropout = self.out_dropout.cuda()
+            if pooling:
+                self.max_pooling = self.max_pooling.cuda()
 
-    def forward(self, sentence, batch = False):
+    def forward(self, sentence):
         """
         Forward function
-        :param sentence: sentence embedding matrix (seq_length, 1, emb_dim)/batch (seq_length, in_channel, batch, emb_dim)
+        :param sentence: sentence embedding matrix (seq_length, 1, emb_dim)
         :return: (seq_length, 1, n_filter)
         """
         sentence = self.in_dropout(sentence) # (seq_len, in_channel, emb_dim)
-        if not batch: # batch (seq, in_channel, batch, emb_dim)
-            sentence = sentence.unsqueeze(2) # (seq_len, in_channel, 1, emb_dim)
+        sentence = sentence.unsqueeze(2) # (seq_len, in_channel, 1, emb_dim)
         sentence = torch.transpose(sentence, 0, 2) # (1, in_channel, seq_len, emb_dim)
         #output = self.conv(sentence) # (1, n_filter, seq_len, 1)
         outputList = []
         for i in range(self.n_conv):
-            output = F.relu(self.convList[i](sentence))
+            o1 = self.convList[i](sentence)
+            if self.pooling:
+                o2 = self.max_pooling(o1)
+            else:
+                o2 = o1
+            output = F.relu(o2)
             outputList.append(output)
-        output = torch.cat(outputList, 1) # (batch size, n_filter, seq_len, 1)
+        output = torch.cat(outputList, 1)
 
-
-        output = output.squeeze(3)
-        output = torch.transpose(output, 0, 2)
-        output = torch.transpose(output, 1, 2)
-        output = self.out_dropout(output)
+        output = output.squeeze(3) # (1, emb_size, seq)
+        output = torch.transpose(output, 0, 2) # (seq, emb_size, 1)
+        output = torch.transpose(output, 1, 2) # (seq, emb_size, 1)
+        output = self.out_dropout(output) # (seq, 1, emb)
         return output
 
 if __name__ == "__main__":
     emb_size = 300
     sentence = Var(torch.rand(24, 1, emb_size))
-    conv = MultiConvModule(0, 300, [100,200,300], [3,5,7])
+    conv = MultiConvModule(0, 300, 1, [100,200,300], [3,5,7])
     output = conv(sentence)
     print (output.size())

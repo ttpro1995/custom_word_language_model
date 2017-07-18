@@ -48,6 +48,8 @@ parser.add_argument('--cuda', action='store_true',
                     help='use CUDA')
 parser.add_argument('--noglove', action='store_true',
                     help='NOT use glove pre-train')
+parser.add_argument('--pooling', type=int, default=0,
+                    help='use pooling')
 parser.add_argument('--log-interval', type=int, default=200, metavar='N',
                     help='report interval')
 parser.add_argument('--save', type=str,  default='tmp_save',
@@ -102,7 +104,8 @@ test_data = batchify(corpus.test, eval_batch_size)
 
 ntokens = len(corpus.dictionary)
 # model = model.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied)
-model = ModelWrapper(args.model, ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied, channel = args.channel)
+model = ModelWrapper(args.model, ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied,
+                     channel = args.channel, pooling = args.pooling)
 
 if args.cuda:
     model.cuda()
