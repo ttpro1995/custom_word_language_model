@@ -13,3 +13,7 @@ job.py
 \.idea/
 
 *.pth
+
+*.txt
+
+saved/
