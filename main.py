@@ -48,6 +48,8 @@ parser.add_argument('--cuda', action='store_true',
                     help='use CUDA')
 parser.add_argument('--noglove', action='store_true',
                     help='NOT use glove pre-train')
+parser.add_argument('--skip', type=int, default=7,
+                    help='skip between input and target')
 parser.add_argument('--pooling', type=int, default=0,
                     help='use pooling')
 parser.add_argument('--log-interval', type=int, default=200, metavar='N',
@@ -188,10 +190,10 @@ def repackage_hidden(h):
         return tuple(repackage_hidden(v) for v in h)
 
 
-def get_batch(source, i, evaluation=False):
-    seq_len = min(args.bptt, len(source) - 1 - i)
+def get_batch(source, i, evaluation=False, skip = 0):
+    seq_len = min(args.bptt, len(source) - 1 - i - skip)
     d = source[i:i+seq_len]
-    t = source[i+1:i+1+seq_len]
+    t = source[i+1+skip:i+1+seq_len+skip]
     # per = torch.randperm(d.size(1))
     # if args.cuda:
     #     per = per.cuda()
@@ -213,7 +215,7 @@ def evaluate(data_source):
     ntokens = len(corpus.dictionary)
     hidden = model.init_hidden(eval_batch_size)
     for i in range(0, data_source.size(0) - 1, args.bptt):
-        data, targets = get_batch(data_source, i, evaluation=True)
+        data, targets = get_batch(data_source, i, evaluation=True, skip = args.skip)
         output, hidden = model(data, hidden)
         output_flat = output.view(-1, ntokens)
         total_loss += len(data) * criterion(output_flat, targets).data
@@ -229,7 +231,8 @@ def train():
     ntokens = len(corpus.dictionary)
     hidden = model.init_hidden(args.batch_size)
     for batch, i in enumerate(range(0, train_data.size(0) - 1, args.bptt)):
-        data, targets = get_batch(train_data, i)
+        data, targets = get_batch(train_data, i, skip=args.skip)
+        # print (batch, i)
         # data (seq_len, batch_size) indices
         # target (seq_len * batch_size)
         # Starting each batch, we detach the hidden state from how it was previously produced.

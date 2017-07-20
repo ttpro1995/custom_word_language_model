@@ -60,14 +60,15 @@ class MultiConvModule(nn.Module):
             if pooling:
                 self.max_pooling = self.max_pooling.cuda()
 
-    def forward(self, sentence):
+    def forward(self, sentence, batch = False):
         """
         Forward function
         :param sentence: sentence embedding matrix (seq_length, 1, emb_dim)
         :return: (seq_length, 1, n_filter)
         """
         sentence = self.in_dropout(sentence) # (seq_len, in_channel, emb_dim)
-        sentence = sentence.unsqueeze(2) # (seq_len, in_channel, 1, emb_dim)
+        if not batch:
+            sentence = sentence.unsqueeze(2) # (seq_len, in_channel, 1, emb_dim)
         sentence = torch.transpose(sentence, 0, 2) # (1, in_channel, seq_len, emb_dim)
         #output = self.conv(sentence) # (1, n_filter, seq_len, 1)
         outputList = []
