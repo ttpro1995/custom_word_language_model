@@ -5,6 +5,7 @@ import torch
 
 from vocab import Vocab
 import torch
+from torch.autograd import Variable
 from meowlogtool import log_util
 
 # loading GLOVE word vectors
@@ -38,6 +39,35 @@ def load_word_vectors(path, split_token=' '):
     vocab = Vocab(filename=path+'.vocab')
     torch.save(vectors, path+'.pth')
     return vocab, vectors
+
+def vector_to_string(vector):
+    '''
+    one dimension vector to string
+    :param vector:
+    :return:
+    '''
+    vector = vector.squeeze()
+    s  = []
+    for i in vector.data:
+        s.append(str(i))
+    s = ' '.join(s)
+    return s
+
+def save_word_vector(args, name, corpus, emb_model):
+    # extract embedding model
+    emb_save_text = open(os.path.join(args.save, name), 'w')
+    ntoken = len(corpus.dictionary.idx2word)
+    # for i in corpus.dictionary.idxToLabel.keys():
+    for i in range(ntoken):
+        word = corpus.dictionary.idx2word[i]
+        i_var = Variable(torch.Tensor([i])).long()
+        if args.cuda:
+            i_var = i_var.cuda()
+        vector = emb_model(i_var)
+        s = word+' '+ vector_to_string(vector)
+        emb_save_text.write(s + '\n')
+    emb_save_text.close()
+    print ('saved word vector at %s'%(args.save))
 
 # write unique words from a set of files to a new file
 def build_vocab(filenames, vocabfile):

@@ -73,14 +73,13 @@ class ModelWrapper(nn.Module):
         self.channel = channel
         self.drop = nn.Dropout(dropout)
         self.encoder = nn.Embedding(ntoken, ninp)
-        for param in self.encoder.parameters():
-            param.requires_grad = False
-        print('freeze encoder')
+        # for param in self.encoder.parameters():
+        #     param.requires_grad = False
         if channel == 2:
             self.encoder2 = nn.Embedding(ntoken, ninp)
-            for param in self.encoder2.parameters():
-                param.requires_grad = False
-            print('freeze encoder2')
+            # for param in self.encoder2.parameters():
+            #     param.requires_grad = False
+
         # your model goes here
         self.conv_module = MultiConvModule(0, ninp, channel, [100, 100], [5, 3], pooling)
         in_dim = 200

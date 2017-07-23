@@ -10,7 +10,7 @@ import data
 from model import ModelWrapper
 import sys
 from meowlogtool import log_util
-
+from util import save_word_vector
 
 
 parser = argparse.ArgumentParser(description='PyTorch PennTreeBank RNN/LSTM Language Model')
@@ -56,6 +56,8 @@ parser.add_argument('--log-interval', type=int, default=200, metavar='N',
                     help='report interval')
 parser.add_argument('--save', type=str,  default='tmp_save',
                     help='path to save the final model')
+parser.add_argument('--tune_encoder', action='store_true',
+                    help='tune encoder when train')
 parser.add_argument('--channel', type = int, default=1)
 args = parser.parse_args()
 
@@ -245,17 +247,21 @@ def train():
 
         # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
         torch.nn.utils.clip_grad_norm(model.parameters(), args.clip)
-        # for p in model.parameters():
-        #     p.data.add_(-lr, p.grad.data)
 
-        for p in model.conv_module.parameters():
-            p.data.add_(-lr, p.grad.data)
+        if args.tune_encoder:
+            # print ('updated word vector')
+            for p in model.parameters():
+                p.data.add_(-lr, p.grad.data)
+        else:
+            # print ('freeze word vector')
+            for p in model.conv_module.parameters():
+                p.data.add_(-lr, p.grad.data)
 
-        for p in model.rnn.parameters():
-            p.data.add_(-lr, p.grad.data)
+            for p in model.rnn.parameters():
+                p.data.add_(-lr, p.grad.data)
 
-        for p in model.decoder.parameters():
-            p.data.add_(-lr, p.grad.data)
+            for p in model.decoder.parameters():
+                p.data.add_(-lr, p.grad.data)
 
         total_loss += loss.data
 
@@ -311,6 +317,9 @@ print('=' * 89)
 
 # save state_dict()
 model.save_state_files(args.save)
+# save word vector
+if args.tune_encoder:
+    save_word_vector(args, 'embed1.txt', corpus, model.encoder)
 
 # python main.py --data ./data/movie5000 --cuda --emsize 300 --nhid 168 --dropout 0.5 --epochs 10
 html_log = log_util.up_gist(os.path.join(args.save, 'word_language_model.log'), 'test_doggy', 'test_doggy')
