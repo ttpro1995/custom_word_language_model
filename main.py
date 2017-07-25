@@ -69,8 +69,8 @@ logger1 = log_util.create_logger(os.path.join(args.save, 'word_language_model'),
 logger1.info("LOG_FILE")  # log using logger1
 
 # attach log to stdout (print function)
-s1 = log_util.StreamToLogger(logger1)
-sys.stdout = s1
+# s1 = log_util.StreamToLogger(logger1)
+# sys.stdout = s1
 
 # Set the random seed manually for reproducibility.
 torch.manual_seed(args.seed)
