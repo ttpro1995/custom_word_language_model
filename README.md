@@ -7,6 +7,7 @@ It require meowlogtool, a log tool upload logs file on github
 pip install meowlogtool
 ```
 
+Build vocabulary from SST dataset and put vocab-cased.txt into word langauge model dataset folder
 
 The `main.py` script accepts the following arguments:
 
